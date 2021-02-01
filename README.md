@@ -1,7 +1,7 @@
 # FPS-Movement
 FPS Parkour-Like movement system for unity. Highly customizable.
 
-#Installation
+# Installation
 
 - Add Unity Input System package
 
