@@ -1,5 +1,6 @@
 # FPS-Movement
 - FPS movement system for unity. Highly customizable.
+- Tutorial on creating this system: https://youtu.be/bwFLLnhm4D4
 
 ## Installation
 - Install latest release and import .unitypackage to your project
