@@ -181,7 +181,7 @@ namespace FPSPrototype.Control {
         }
 
         private IEnumerator StopProjectedSlide(Vector3 momentum) {
-            //f*ing stupid f*ing phsyics dumb dumb math go BRRRR
+            //f*ing stupid f*ing physics dumb dumb math go BRRRR
             Vector3 velocity = momentum / rb.mass; //find velocity after slide
             Vector3 finalPos = transform.position + velocity; //estimated final position
             float distToPos = Vector3.Distance(transform.position, finalPos); //distance between final position and current position
