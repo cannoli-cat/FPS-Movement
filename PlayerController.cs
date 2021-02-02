@@ -177,13 +177,13 @@ namespace FPSPrototype.Control {
             sliding = true;
             timeSinceLastSlide = 0f;
 
-            StartCoroutine(StopSlide(rb.velocity));
+            StartCoroutine(StopProjectedSlide(rb.velocity));
         }
 
-        private IEnumerator StopSlide(Vector3 momentum) {
+        private IEnumerator StopProjectedSlide(Vector3 momentum) {
             //f*ing stupid f*ing phsyics dumb dumb math go BRRRR
             Vector3 velocity = momentum / rb.mass; //find velocity after slide
-            Vector3 finalPos = transform.position + velocity; //predicted final position
+            Vector3 finalPos = transform.position + velocity; //estimated final position
             float distToPos = Vector3.Distance(transform.position, finalPos); //distance between final position and current position
 
             if (debugSlideTrajectory) Debug.DrawLine(transform.position, finalPos, Color.blue, 5f);
