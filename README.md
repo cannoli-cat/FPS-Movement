@@ -19,7 +19,7 @@ FPS Parkour-Like movement system for unity. Highly customizable.
 - Child main camera to camera holder parent object
 - Reset main camera transform
 
-## Ground Setup
+## Project Setup
 - Create ground layer
 - Create a physics material with no friction and put on everything you want to be ground.
 - (OPTIONAL) Set Project gravity to -30
