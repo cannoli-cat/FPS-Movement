@@ -1,5 +1,5 @@
 # FPS-Movement
-FPS Parkour-Like movement system for unity. Highly customizable.
+- FPS movement system for unity. Highly customizable.
 
 ## Installation
 - Install latest release and import .unitypackage to your project
