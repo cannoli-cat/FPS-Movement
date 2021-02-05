@@ -153,8 +153,6 @@ public class PlayerController : MonoBehaviour {
         if (enableInAirDrag) {
             float drop = prevVelocity.magnitude * inAirDrag * Time.fixedDeltaTime;
             prevVelocity *= (drop != 0 ? Mathf.Min(prevVelocity.magnitude - drop, 0f) / prevVelocity.magnitude : 1f);
-
-            return prevVelocity + dir * (inAirAcceleration * Time.fixedDeltaTime);
         }
 
         return prevVelocity + dir * (inAirAcceleration * Time.fixedDeltaTime);
