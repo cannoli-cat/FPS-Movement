@@ -1,17 +1,16 @@
 using UnityEngine;
 using System.Collections;
 
-
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour {
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 500f;
     [SerializeField] private float moveMultiplier = 9f;
     [SerializeField] private float sprintMultiplier = 12f;
-    [SerializeField] private float groundMaxSpeed = 80f;
-    [SerializeField] private float airMaxSpeed = 70f;
+    [SerializeField] private float groundMaxSpeed = 20f;
+    [SerializeField] private float airMaxSpeed = 30f;
     [SerializeField] [Tooltip("Adds to the original max speed")] private float sprintMaxSpeedModifier = 5f;
-    [SerializeField] private float drag = 230f;
+    [SerializeField] private float friction = 230f;
     [SerializeField] private float maxSlope = 15f;
 
     [Header("Ground Check Settings")]
@@ -22,13 +21,15 @@ public class PlayerController : MonoBehaviour {
     [Header("Jump Settings")]
     [SerializeField] private float jumpForce = 300f;
     [SerializeField] private float jumpMultiplier = 1.5f;
-    [SerializeField] private float inAirMovementModifier = 0.5f;
+    [SerializeField] private bool autoJump = true;
+    [SerializeField] private float inAirAcceleration = 1000f;
+    [SerializeField] private float inAirMovementModifier = 0.8f;
     [SerializeField] private float inAirDrag = 160f;
     [SerializeField] private bool enableInAirDrag = false;
 
     [Header("Slide & Crouch Settings")]
     [SerializeField] private float slideForce = 600f;
-    [SerializeField] private float slideDrag = 100f;
+    [SerializeField] private float slideFriction = 100f;
     [SerializeField] private float slideCooldown = 1f;
     [SerializeField] private float slideSpeedThreshold = 5f;
     [SerializeField] private float slideStopThreshold = 2.4f;
@@ -107,60 +108,56 @@ public class PlayerController : MonoBehaviour {
         Vector3 dir = orientation.right * moveInput.x + orientation.forward * moveInput.y;
         rb.AddForce(Vector3.down * Time.fixedDeltaTime * 10f);
 
-        if (jumping && GroundCheck()) OnJump();
+        if (autoJump && jumping && GroundCheck()) OnJump();
 
         if (crouching && GroundCheck() && currentSlope >= maxSlope) {
             rb.AddForce(Vector3.down * Time.fixedDeltaTime * 5000f);
             return;
         }
 
-        float multiplier = GroundCheck() ? 1f : inAirMovementModifier;
-        float multiplierV = (GroundCheck() && crouching) ? crouchMoveMultiplier : multiplier;
-        float currentMaxSpeed = !crouching && sprinting ? groundMaxSpeed + sprintMaxSpeedModifier : crouching ? crouchMaxSpeed : !GroundCheck() ? airMaxSpeed : groundMaxSpeed;
+        float multiplier = GroundCheck() && crouching ? crouchMoveMultiplier : 1f;
+        float currentMaxSpeed = (!GroundCheck() || jumping) ? airMaxSpeed : (GroundCheck() && !crouching && sprinting) ? groundMaxSpeed + sprintMaxSpeedModifier : (crouching && GroundCheck()) ? crouchMaxSpeed : groundMaxSpeed;
         float currentMoveSpeed = moveSpeed * (sprinting ? sprintMultiplier : moveMultiplier);
 
-        rb.AddForce(MoveVector(dir.normalized, rb.velocity, currentMoveSpeed, currentMaxSpeed) * multiplier * multiplierV);
-    }
-
-    private Vector3 Accelerate(Vector3 dir, Vector3 prevVelocity, float accelerate, float maxVelocity) {
-        float projVelo = Vector3.Dot(prevVelocity, dir);
-        float accelVel = accelerate * Time.fixedDeltaTime;
-
-        if (projVelo + accelVel > maxVelocity) accelVel = maxVelocity - projVelo;
-
-        return prevVelocity + dir * accelVel;
-    }
-
-    private Vector3 MoveVector(Vector3 dir, Vector3 prevVelocity, float accelerate, float maxVelocity) {
-        float speed = prevVelocity.magnitude;
-        prevVelocity = ApplyFriction(prevVelocity, speed);
-
-        return Accelerate(dir, prevVelocity, accelerate, maxVelocity);
-    }
-
-    private Vector3 ApplyFriction(Vector3 velocity, float speed) {
-        Vector3 friction = Vector3.zero;
-
-        if (enableInAirDrag && speed != 0 && !GroundCheck() || jumping) {
-            float drop = speed * inAirDrag * Time.fixedDeltaTime;
-            friction = velocity * (drop != 0 ? Mathf.Min(speed - drop, 0) / speed : 1f);
-
-            return new Vector3(friction.x, 0f, friction.z);
+        if (rb.velocity.magnitude > currentMaxSpeed) {
+            dir = Vector3.zero;
+            rb.velocity = Vector3.ClampMagnitude(rb.velocity, currentMaxSpeed);
         }
+
+        Vector3 velocity = (GroundCheck() && !jumping) ? MoveGround(dir.normalized, rb.velocity, currentMoveSpeed) * multiplier
+                                                       : MoveAir(dir.normalized, rb.velocity) * inAirMovementModifier;
+
+        rb.AddForce(velocity);
+    }
+
+    private Vector3 MoveGround(Vector3 dir, Vector3 prevVelocity, float accelerate) {
+        float speed = prevVelocity.magnitude;
+        accelerate *= Time.fixedDeltaTime;
 
         if (speed != 0 && crouching && currentSlope >= maxSlope || sliding && timeSinceLastSlide < slideCooldown) {
-            float drop = speed * slideDrag * Time.fixedDeltaTime;
-            friction = velocity * Mathf.Min(speed - drop, 0f) / speed;
+            float drop = speed * slideFriction * Time.fixedDeltaTime;
+            prevVelocity *= Mathf.Min(speed - drop, 0f) / speed;
 
-            return friction;
+            return prevVelocity + dir * accelerate;
         }
 
-        if (speed != 0 && GroundCheck()) {
-            float drop = speed * drag * Time.fixedDeltaTime;
-            friction = velocity * Mathf.Min(speed - drop, 0) / speed;
+        if (speed != 0) {
+            float drop = speed * friction * Time.fixedDeltaTime;
+            prevVelocity *= Mathf.Min(speed - drop, 0f) / speed;
         }
 
-        return friction;
+        return prevVelocity + dir * accelerate;
+    }
+
+    private Vector3 MoveAir(Vector3 dir, Vector3 prevVelocity) {
+        if (enableInAirDrag) {
+            float drop = prevVelocity.magnitude * inAirDrag * Time.fixedDeltaTime;
+            prevVelocity *= (drop != 0 ? Mathf.Min(prevVelocity.magnitude - drop, 0f) / prevVelocity.magnitude : 1f);
+
+            return prevVelocity + dir * (inAirAcceleration * Time.fixedDeltaTime);
+        }
+
+        return prevVelocity + dir * (inAirAcceleration * Time.fixedDeltaTime);
     }
 
     private void OnJump() {
