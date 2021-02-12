@@ -130,16 +130,9 @@ namespace FPSPrototype.Control {
             float projVel = Vector3.Dot(velocity, dir);
             float accelVel = speed * Time.fixedDeltaTime;
 
-<<<<<<< HEAD
             if (projVel + accelVel > maxSpeed) accelVel = maxSpeed - projVel;
 
             return velocity + dir * accelVel;
-=======
-    private Vector3 MoveAir(Vector3 dir, Vector3 prevVelocity) {
-        if (enableInAirDrag) {
-            float drop = prevVelocity.magnitude * inAirDrag * Time.fixedDeltaTime;
-            prevVelocity *= (drop != 0 ? Mathf.Min(prevVelocity.magnitude - drop, 0f) / prevVelocity.magnitude : 1f);
->>>>>>> a31cf0b7c4287112162c7ae1adac3f7ee729a2f4
         }
 
         private Vector3 MoveGround(Vector3 dir, Vector3 velocity, float accelSpeed, float maxSpeed) {
