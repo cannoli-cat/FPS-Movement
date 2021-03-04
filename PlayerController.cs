@@ -52,15 +52,14 @@ public class PlayerController : MonoBehaviour {
     [SerializeField] private bool enableMouseLook = true;
     [SerializeField] private Transform playerCamera = null;
     [SerializeField] private Transform orientation = null;
-    [SerializeField] private float maxAngle = 90f;
     [SerializeField] private Vector2 sensitivity = new Vector2(20f, 20f);
     [SerializeField] private float sensMultiplier = 0.2f;
+    [SerializeField] private float maxAngle = 90f;
 
     private Rigidbody rb = null;
     private Controls controls = null;
 
-    private Vector2 mouse = Vector2.zero;
-    private Vector2 moveInput = Vector2.zero;
+    private Vector2 moveInput = Vector2.zero, mouseInput = Vector2.zero;
 
     private Vector3 originalScale = Vector3.zero;
 
@@ -92,6 +91,12 @@ public class PlayerController : MonoBehaviour {
     }
 
     private void AssignControls() {
+        controls.Gameplay.Movement.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
+        controls.Gameplay.Movement.canceled += ctx => moveInput = Vector2.zero;
+
+        controls.Gameplay.Mouse.performed += ctx => mouseInput = controls.Gameplay.Mouse.ReadValue<Vector2>() * sensitivity * Time.fixedDeltaTime * sensMultiplier;
+        controls.Gameplay.Mouse.canceled += ctx => mouseInput = Vector2.zero;
+
         controls.Gameplay.Jump.performed += ctx => {
             jumping = true;
             OnJump();
@@ -105,28 +110,20 @@ public class PlayerController : MonoBehaviour {
         controls.Gameplay.Sprint.canceled += ctx => sprinting = false;
     }
 
-    private void FixedUpdate() {
-        if (!hasControl) return;
-        UpdateMovement();
-    }
+    private void FixedUpdate() => UpdateMovement();
 
     private void Update() {
         if (enableSlide && timeSinceLastSlide < slideCooldown) timeSinceLastSlide += Time.deltaTime;
-
-        UpdateInputs();
-        if (enableMouseLook) UpdateMouseLook();
-    }
-
-    private void UpdateInputs() {
-        mouse = controls.Gameplay.Mouse.ReadValue<Vector2>() * sensitivity * Time.fixedDeltaTime * sensMultiplier;
-        moveInput = controls.Gameplay.Movement.ReadValue<Vector2>();
+        UpdateMouseLook();
     }
 
     private void UpdateMouseLook() {
-        var rot = playerCamera.localRotation.eulerAngles;
-        float xTo = rot.y + mouse.x;
+        if (!enableMouseLook) return;
 
-        xRotation -= mouse.y;
+        var rot = playerCamera.localRotation.eulerAngles;
+        float xTo = rot.y + mouseInput.x;
+
+        xRotation -= mouseInput.y;
         xRotation = Mathf.Clamp(xRotation, -maxAngle, maxAngle);
 
         playerCamera.localRotation = Quaternion.Euler(xRotation, xTo, 0f);
@@ -134,6 +131,8 @@ public class PlayerController : MonoBehaviour {
     }
 
     private void UpdateMovement() {
+        if (!hasControl) return;
+
         Vector3 dir = orientation.right * moveInput.x + orientation.forward * moveInput.y;
         rb.AddForce(Vector3.down * Time.fixedDeltaTime * 10f);
 
@@ -147,10 +146,10 @@ public class PlayerController : MonoBehaviour {
         float multiplier = grounded && crouching ? crouchMoveMultiplier : 1f;
 
         if (rb.velocity.magnitude > maxSpeed) dir = Vector3.zero;
-        rb.AddForce(ApplyMovement(-rb.velocity, dir.normalized, curSpeed * Time.fixedDeltaTime) * ((grounded && !jumping) ? multiplier : inAirMovementModifier));
+        rb.AddForce(GetMovementVector(-rb.velocity, dir.normalized, curSpeed * Time.fixedDeltaTime) * ((grounded && !jumping) ? multiplier : inAirMovementModifier));
     }
 
-    private Vector3 ApplyMovement(Vector3 velocity, Vector3 dir, float speed) {
+    private Vector3 GetMovementVector(Vector3 velocity, Vector3 dir, float speed) {
         if (!grounded && velocity.magnitude != 0 && enableInAirDrag || velocity.magnitude != 0 && enableInAirDrag && jumping) {
             float drop = inAirDrag * Time.fixedDeltaTime;
             velocity *= drop != 0f ? drop : 1f;
@@ -199,7 +198,13 @@ public class PlayerController : MonoBehaviour {
 
     private void OnCollisionStay(Collision other) {
         if (((1 << other.gameObject.layer) & groundLayer) != 0) {
-            grounded = true;
+            for (int i = 0; i < other.contactCount; i++) {
+                if (Mathf.Round(other.GetContact(i).normal.y) == 1.0f) {
+                    grounded = true;
+                    break;
+                }
+            }
+
             Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, slopeRaycastDistance, groundLayer);
             currentSlope = Vector3.Angle(Vector3.up, hit.normal);
         }
