@@ -18,7 +18,7 @@ public class PlayerController : MonoBehaviour {
     [SerializeField] private float inAirDrag = 160f;
 
     [Header("Sprint Settings")]
-    [SerializeField] [Tooltip("Will disable sprinting on runtime.")] private bool enableSprint = true;
+    [SerializeField] private bool enableSprint = true;
     [SerializeField] private float sprintMultiplier = 12f;
     [SerializeField] [Tooltip("Adds to the original max speed.")] private float sprintMaxSpeedModifier = 5f;
 
@@ -34,8 +34,8 @@ public class PlayerController : MonoBehaviour {
 
     [Header("Crouch Settings")]
     [SerializeField] private bool enableCrouch = true;
-    [SerializeField] private float crouchMoveMultiplier = 0.7f;
-    [SerializeField] private float crouchMaxSpeed = 20f;
+    [SerializeField] private float crouchMoveMultiplier = 0.5f;
+    [SerializeField] private float crouchMaxSpeed = 10f;
     [SerializeField] private float crouchJumpMultiplier = 1.4f;
     [SerializeField] private Vector3 crouchScale = new Vector3(1f, 0.5f, 1f);
 
@@ -67,6 +67,20 @@ public class PlayerController : MonoBehaviour {
     private float xRotation = 0f, currentSlope = 0f, timeSinceLastSlide = Mathf.Infinity;
     private bool grounded, jumping, crouching, sliding, sprinting;
 
+    private float curSpeed {
+        get {
+            if (!enableSprint) return moveSpeed * moveMultiplier;
+            return moveSpeed * (sprinting ? sprintMultiplier : moveMultiplier);
+        }
+    }
+
+    private float maxSpeed {
+        get {
+            if (!enableSprint) return (!grounded || jumping) ? inAirMaxSpeed : (crouching && grounded) ? crouchMaxSpeed : groundMaxSpeed;
+            return (!grounded || jumping) ? inAirMaxSpeed : (grounded && !crouching && sprinting) ? groundMaxSpeed + sprintMaxSpeedModifier : (crouching && grounded) ? crouchMaxSpeed : groundMaxSpeed;
+        }
+    }
+
     private void Awake() {
         rb = GetComponent<Rigidbody>();
         controls = new Controls();
@@ -87,10 +101,8 @@ public class PlayerController : MonoBehaviour {
         controls.Gameplay.Crouch.performed += ctx => ToggleCrouch(true);
         controls.Gameplay.Crouch.canceled += ctx => ToggleCrouch(false);
 
-        if (enableSprint) {
-            controls.Gameplay.Sprint.performed += ctx => sprinting = true;
-            controls.Gameplay.Sprint.canceled += ctx => sprinting = false;
-        }
+        controls.Gameplay.Sprint.performed += ctx => sprinting = true;
+        controls.Gameplay.Sprint.canceled += ctx => sprinting = false;
     }
 
     private void FixedUpdate() {
@@ -133,11 +145,9 @@ public class PlayerController : MonoBehaviour {
         }
 
         float multiplier = grounded && crouching ? crouchMoveMultiplier : 1f;
-        float currentMaxSpeed = (!grounded || jumping) ? inAirMaxSpeed : (grounded && !crouching && sprinting) ? groundMaxSpeed + sprintMaxSpeedModifier : (crouching && grounded) ? crouchMaxSpeed : groundMaxSpeed;
-        float currentMoveSpeed = moveSpeed * (sprinting ? sprintMultiplier : moveMultiplier);
 
-        if (rb.velocity.magnitude > currentMaxSpeed) dir = Vector3.zero;
-        rb.AddForce(ApplyMovement(-rb.velocity, dir.normalized, currentMoveSpeed * Time.fixedDeltaTime) * ((grounded && !jumping) ? multiplier : inAirMovementModifier));
+        if (rb.velocity.magnitude > maxSpeed) dir = Vector3.zero;
+        rb.AddForce(ApplyMovement(-rb.velocity, dir.normalized, curSpeed * Time.fixedDeltaTime) * ((grounded && !jumping) ? multiplier : inAirMovementModifier));
     }
 
     private Vector3 ApplyMovement(Vector3 velocity, Vector3 dir, float speed) {
