@@ -20,7 +20,7 @@ public class PlayerController : MonoBehaviour {
     [Header("Sprint Settings")]
     [SerializeField] private bool enableSprint = true;
     [SerializeField] private float sprintMultiplier = 12f;
-    [SerializeField] [Tooltip("Adds to the original max speed.")] private float sprintMaxSpeedModifier = 5f;
+    [SerializeField][Tooltip("Adds to the original max speed.")] private float sprintMaxSpeedModifier = 5f;
 
     [Header("Ground Check Settings")]
     [SerializeField] private float slopeRaycastDistance = 1f;
@@ -64,21 +64,25 @@ public class PlayerController : MonoBehaviour {
     private Vector3 originalScale = Vector3.zero;
 
     private float xRotation = 0f, currentSlope = 0f, timeSinceLastSlide = Mathf.Infinity;
-    private bool grounded, jumping, crouching, sliding, sprinting;
+    private bool jumping, crouching, sliding, sprinting;
 
-    private float curSpeed {
+    public float curSpeed {
         get {
             if (!enableSprint) return moveSpeed * moveMultiplier;
             return moveSpeed * (sprinting ? sprintMultiplier : moveMultiplier);
         }
     }
 
-    private float maxSpeed {
+    public float maxSpeed {
         get {
             if (!enableSprint) return (!grounded || jumping) ? inAirMaxSpeed : (crouching && grounded) ? crouchMaxSpeed : groundMaxSpeed;
             return (!grounded || jumping) ? inAirMaxSpeed : (grounded && !crouching && sprinting) ? groundMaxSpeed + sprintMaxSpeedModifier : (crouching && grounded) ? crouchMaxSpeed : groundMaxSpeed;
         }
     }
+
+    public bool canSlide => rb.velocity.magnitude > slideSpeedThreshold && grounded && crouching && !sliding && timeSinceLastSlide >= slideCooldown && currentSlope < maxSlope;
+
+    public bool grounded { get; private set; }
 
     private void Awake() {
         rb = GetComponent<Rigidbody>();
@@ -186,7 +190,7 @@ public class PlayerController : MonoBehaviour {
             transform.localScale = crouchScale;
             transform.position = new Vector3(transform.position.x, transform.position.y - 0.5f, transform.position.z);
 
-            if (CanSlide()) Slide();
+            if (canSlide) Slide();
         }
         else {
             crouching = false;
@@ -242,12 +246,8 @@ public class PlayerController : MonoBehaviour {
         sliding = false;
     }
 
-    private bool CanSlide() {
-        return rb.velocity.magnitude > slideSpeedThreshold && grounded && crouching && !sliding && timeSinceLastSlide >= slideCooldown && currentSlope < maxSlope;
-    }
-
     private void OnCollisionEnter(Collision other) {
-        if (CanSlide()) Slide();
+        if (canSlide) Slide();
     }
 
     private void OnEnable() => controls.Enable();
