@@ -102,8 +102,10 @@ public class PlayerController : MonoBehaviour {
         controls.Gameplay.Mouse.canceled += ctx => mouseInput = Vector2.zero;
 
         controls.Gameplay.Jump.performed += ctx => {
-            jumping = true;
-            OnJump();
+            if (enableJump) {
+                jumping = true;
+                OnJump();
+            }
         };
         controls.Gameplay.Jump.canceled += ctx => jumping = false;
 
@@ -140,7 +142,7 @@ public class PlayerController : MonoBehaviour {
         Vector3 dir = orientation.right * moveInput.x + orientation.forward * moveInput.y;
         rb.AddForce(Vector3.down * Time.fixedDeltaTime * 10f);
 
-        if (autoJump && jumping && grounded) OnJump();
+        if (enableJump && autoJump && jumping && grounded) OnJump();
 
         if (crouching && grounded && currentSlope >= maxSlope) {
             rb.AddForce(Vector3.down * Time.fixedDeltaTime * 5000f);
